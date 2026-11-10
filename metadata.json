@@ -1,0 +1,8 @@
+{
+  "name": "测试换ip Plan B - AI Health Companion",
+  "description": "High-fidelity mobile UI concept and interactive prototype for Plan B, a calm, empathetic AI health companion.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

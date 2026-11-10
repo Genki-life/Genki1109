@@ -1,0 +1,192 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --ios-bg-grouped: #F2F2F7;
+    --ios-card-solid: #FFFFFF;
+    --ios-card-secondary: #F2F2F7;
+    --ios-label-primary: #1C1C1E;
+    --ios-label-secondary: #6C6C70;
+    --ios-label-tertiary: #8E8E93;
+    --ios-accent: #5E5BAE;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1C1C1E;
+    background-color: #E5E5EA;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "kern" 1;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+    letter-spacing: -0.02em;
+  }
+}
+
+/* ==========================================================================
+   Apple Health Inspired Liquid Glass Materials (with @supports Fallback)
+   Placed in @layer components so Tailwind utility classes (e.g. .absolute)
+   always take precedence.
+   ========================================================================== */
+@layer components {
+  /* 1. Floating Navigation Capsule & Talk to Nova Bar */
+  .liquid-glass-pill {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    -webkit-mask-image: -webkit-radial-gradient(white, black);
+    /* Readable fallback when backdrop-filter is unsupported */
+    background-color: rgba(255, 255, 255, 0.90);
+    border: 1px solid rgba(255, 255, 255, 0.92);
+    box-shadow:
+      0 6px 20px -4px rgba(28, 28, 30, 0.07),
+      0 1px 3px rgba(0, 0, 0, 0.03);
+  }
+
+  .liquid-glass-pill > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .liquid-glass-pill {
+      background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.60) 0%,
+        rgba(255, 255, 255, 0.38) 100%
+      );
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.72);
+      box-shadow:
+        inset 0 1px 0.5px rgba(255, 255, 255, 0.90),
+        inset 0 -0.5px 0.5px rgba(255, 255, 255, 0.38),
+        0 8px 24px -6px rgba(38, 35, 65, 0.08),
+        0 1px 2px rgba(0, 0, 0, 0.03);
+    }
+
+    .liquid-glass-pill-interactive:hover {
+      background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.72) 0%,
+        rgba(255, 255, 255, 0.48) 100%
+      );
+    }
+  }
+
+  /* 2. Active Tab Highlight Layer Inside Liquid Glass Capsule */
+  .liquid-glass-active-tab {
+    /* Readable fallback */
+    background-color: rgba(238, 236, 248, 0.88);
+  }
+
+  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .liquid-glass-active-tab {
+      background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.72) 0%,
+        rgba(238, 235, 250, 0.48) 100%
+      );
+      box-shadow:
+        inset 0 1px 0.5px rgba(255, 255, 255, 0.92),
+        inset 0 0 0 0.5px rgba(255, 255, 255, 0.55),
+        0 1px 4px rgba(28, 28, 30, 0.03);
+    }
+  }
+
+  /* 3. Today Suggestion Bubble & Floating Glass Pills (e.g. Saved Items) */
+  .liquid-glass-bubble {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    -webkit-mask-image: -webkit-radial-gradient(white, black);
+    /* Readable fallback when backdrop-filter is unsupported */
+    background-color: rgba(255, 255, 255, 0.94);
+    border: 1px solid rgba(255, 255, 255, 0.96);
+    box-shadow:
+      0 6px 20px -3px rgba(28, 28, 45, 0.06),
+      0 1px 3px rgba(0, 0, 0, 0.02);
+  }
+
+  .liquid-glass-bubble > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .liquid-glass-bubble {
+      background: linear-gradient(
+        170deg,
+        rgba(255, 255, 255, 0.82) 0%,
+        rgba(255, 255, 255, 0.68) 100%
+      );
+      -webkit-backdrop-filter: blur(20px) saturate(170%);
+      backdrop-filter: blur(20px) saturate(170%);
+      border: 1px solid rgba(255, 255, 255, 0.88);
+      box-shadow:
+        inset 0 1px 0.5px rgba(255, 255, 255, 0.95),
+        inset 0 -0.5px 0.5px rgba(255, 255, 255, 0.45),
+        0 8px 24px -4px rgba(28, 28, 45, 0.07),
+        0 1px 2px rgba(0, 0, 0, 0.02);
+    }
+
+    .liquid-glass-bubble:hover {
+      background: linear-gradient(
+        170deg,
+        rgba(255, 255, 255, 0.90) 0%,
+        rgba(255, 255, 255, 0.78) 100%
+      );
+    }
+  }
+
+  /* 4. Today Expanded Suggestion Card: Restrained White with Light Glass Touch */
+  .today-suggestion-card {
+    background-color: #FFFFFF;
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    box-shadow:
+      0 16px 44px -8px rgba(28, 28, 45, 0.09),
+      0 2px 6px rgba(0, 0, 0, 0.03);
+  }
+
+  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .today-suggestion-card {
+      background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.96) 0%,
+        rgba(255, 255, 255, 0.91) 100%
+      );
+      -webkit-backdrop-filter: blur(24px) saturate(160%);
+      backdrop-filter: blur(24px) saturate(160%);
+      border: 1px solid rgba(255, 255, 255, 0.88);
+      box-shadow:
+        inset 0 1px 0.5px rgba(255, 255, 255, 0.95),
+        0 16px 44px -8px rgba(28, 28, 45, 0.09),
+        0 2px 6px rgba(0, 0, 0, 0.03);
+    }
+  }
+
+  /* 5. Subtle inner icon well inside liquid glass controls */
+  .liquid-glass-icon-well {
+    background-color: rgba(94, 91, 174, 0.11);
+    box-shadow: inset 0 0.5px 0.5px rgba(255, 255, 255, 0.65);
+  }
+
+  /* 6. Authentic iOS Slim Scrollbar for scrollable cards */
+  .ios-scrollbar::-webkit-scrollbar {
+    width: 3.5px;
+  }
+  .ios-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .ios-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(60, 60, 67, 0.18);
+    border-radius: 9999px;
+  }
+  .ios-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(60, 60, 67, 0.18) transparent;
+  }
+}
