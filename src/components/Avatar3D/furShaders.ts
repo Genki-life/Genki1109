@@ -55,39 +55,40 @@ const COMMON_HAIR_BSDF_GLSL = /* glsl */ `
     vec3 sageTip  = uTipColor;  // #c4ccb9
 
     // Zone B: Larger, wider warm cream-white oval belly patch with reduced glare & feathered transition
-    // ("肚皮调整为更大、更宽的暖奶油白椭圆，降低过亮的纯白感，边缘柔和过渡")
-    float bellyRx = 0.52 - 0.04 * (rootPos.y + 0.33);
+    // Exactly matches blobCreature.ts evaluateUnderSkinColor & evaluateFollicleMask
+    float bellyRx = 0.51 - 0.035 * (rootPos.y + 0.33);
     float bellyEllip = sqrt(
       pow(rootPos.x / max(0.28, bellyRx), 2.0) +
       pow((rootPos.y + 0.33) / 0.39, 2.0)
     );
-    float bellyZMask = smoothstep(0.18, 0.42, rootPos.z);
+    float bellyZMask = smoothstep(0.20, 0.42, rootPos.z);
     float bellyWeight = (1.0 - smoothstep(0.78, 1.04, bellyEllip)) * bellyZMask;
-    vec3 bellyRoot = vec3(0.84, 0.80, 0.72);
+    vec3 bellyRoot = vec3(0.86, 0.83, 0.76);
     vec3 bellyTip  = vec3(0.935, 0.905, 0.845);
 
-    // Zone C: Soft warm peach-orange gradient cheek blush below/outer to the eyes ("柔和的暖桃橙色腮红，边缘渐变")
+    // Zone C: Soft warm peach-orange gradient cheek blush below/outer to the eyes
     float blushDx = (abs(rootPos.x) - 0.375) / 0.145;
-    float blushDy = (rootPos.y - 0.135) / 0.090;
+    float blushDy = (rootPos.y - 0.13) / 0.090;
     float blushDistSq = blushDx * blushDx + blushDy * blushDy;
     float blushZ = smoothstep(0.28, 0.50, rootPos.z);
     float blushWeight = exp(-blushDistSq * 1.45) * blushZ * 0.84;
     vec3 blushRoot = vec3(0.84, 0.52, 0.38);
     vec3 blushTip  = vec3(0.94, 0.66, 0.52);
 
-    // Zone D: Subtle pale sage-cream hollow on the elongated upright left ear (x < 0, y > 0.84, z > 0)
+    // Zone D: Subtle pale sage-cream hollow on the elongated upright left ear (x < 0, y > 0.82, z > 0)
     float earDx = (rootPos.x + 0.32) / 0.088;
-    float earDy = (rootPos.y - 1.15) / 0.25;
-    float innerEarWeight = exp(-(earDx * earDx + earDy * earDy) * 1.50) * smoothstep(0.01, 0.07, rootPos.z) * 0.76;
+    float earDy = (rootPos.y - 1.12) / 0.24;
+    float innerEarWeight = exp(-(earDx * earDx + earDy * earDy) * 1.50) * smoothstep(0.01, 0.07, rootPos.z) * 0.72;
     vec3 innerEarRoot = vec3(0.78, 0.82, 0.73);
-    vec3 innerEarTip  = vec3(0.90, 0.93, 0.85);
+    vec3 innerEarTip  = vec3(0.89, 0.92, 0.84);
 
-    // Combine zone pigments smoothly
+    // Combine zone pigments smoothly with a subtle warm luminance lift across the belly-to-sage border
     vec3 zoneRoot = mix(sageRoot, innerEarRoot, innerEarWeight);
     vec3 zoneTip  = mix(sageTip,  innerEarTip,  innerEarWeight);
 
-    zoneRoot = mix(zoneRoot, bellyRoot, bellyWeight);
-    zoneTip  = mix(zoneTip,  bellyTip,  bellyWeight);
+    float borderLift = 1.0 + bellyWeight * (1.0 - bellyWeight) * 0.12;
+    zoneRoot = mix(zoneRoot, bellyRoot, bellyWeight) * borderLift;
+    zoneTip  = mix(zoneTip,  bellyTip,  bellyWeight) * borderLift;
 
     zoneRoot = mix(zoneRoot, blushRoot, blushWeight);
     zoneTip  = mix(zoneTip,  blushTip,  blushWeight);
@@ -95,27 +96,27 @@ const COMMON_HAIR_BSDF_GLSL = /* glsl */ `
     // 2. Anatomical Plush Seam & Crease Ambient Occlusion (separates side arms, folded lop ear, and pom-pom tail)
     float seamShade = 1.0;
 
-    // Soft crease around the short rounded side arms (spanning y in [-0.45, -0.02], z ~ 0.05)
-    vec2 armYZ = vec2((rootPos.y + 0.22) / 0.23, (rootPos.z - 0.05) / 0.155);
+    // Vertical-oval crease around the short rounded side arms (y in [-0.45, -0.02], z ~ 0.05)
+    vec2 armYZ = vec2((rootPos.y + 0.22) / 0.24, (rootPos.z - 0.05) / 0.125);
     float armRadial = length(armYZ);
-    float onTorsoNearArm = smoothstep(0.58, 0.71, abs(rootPos.x)) * (1.0 - smoothstep(0.72, 0.78, abs(rootPos.x)));
-    float armCreaseRing = exp(-pow((armRadial - 0.92) / 0.26, 2.0)) * onTorsoNearArm;
-    seamShade -= armCreaseRing * 0.21;
+    float onTorsoNearArm = smoothstep(0.57, 0.69, abs(rootPos.x)) * (1.0 - smoothstep(0.70, 0.76, abs(rootPos.x)));
+    float armCreaseRing = exp(-pow((armRadial - 0.92) / 0.24, 2.0)) * onTorsoNearArm;
+    seamShade -= armCreaseRing * 0.18;
     // Gentle volume lift on the outer rounded surface of the side arms so they stand out in Front & Side views
-    float onOuterArm = smoothstep(0.73, 0.86, abs(rootPos.x)) * (1.0 - smoothstep(0.95, 1.35, armRadial));
-    seamShade += onOuterArm * 0.06;
+    float onOuterArm = smoothstep(0.71, 0.84, abs(rootPos.x)) * (1.0 - smoothstep(0.95, 1.35, armRadial));
+    seamShade += onOuterArm * 0.05;
 
     // Soft shadow on the upper-right head directly beneath the arched-and-drooping right lop ear
-    if (rootPos.x > 0.32 && rootPos.y > 0.46 && rootPos.y < 0.84) {
-      float underLop = exp(-pow((rootPos.x - 0.52) / 0.15, 2.0) - pow((rootPos.y - 0.66) / 0.14, 2.0));
-      float isHeadUnderEar = 1.0 - smoothstep(0.50, 0.60, rootPos.x);
+    if (rootPos.x > 0.34 && rootPos.y > 0.44 && rootPos.y < 0.82) {
+      float underLop = exp(-pow((rootPos.x - 0.52) / 0.14, 2.0) - pow((rootPos.y - 0.64) / 0.14, 2.0));
+      float isHeadUnderEar = 1.0 - smoothstep(0.50, 0.58, rootPos.x);
       seamShade -= underLop * isHeadUnderEar * 0.16;
     }
 
-    // Soft crease around the round pom-pom tail base at back bottom (x = 0, y = -0.53, z < -0.54)
-    if (rootPos.z < -0.54) {
-      float tailRadial = length(vec2(rootPos.x, rootPos.y + 0.53));
-      float tailSeam = exp(-pow((tailRadial - 0.165) / 0.048, 2.0)) * smoothstep(-0.54, -0.62, rootPos.z);
+    // Soft crease around the round pom-pom tail base at back bottom (x = 0, y = -0.52, z < -0.52)
+    if (rootPos.z < -0.52) {
+      float tailRadial = length(vec2(rootPos.x, rootPos.y + 0.52));
+      float tailSeam = exp(-pow((tailRadial - 0.162) / 0.046, 2.0)) * smoothstep(-0.52, -0.60, rootPos.z);
       seamShade -= tailSeam * 0.19;
     }
 
@@ -126,18 +127,18 @@ const COMMON_HAIR_BSDF_GLSL = /* glsl */ `
     vec3 albedo = mix(zoneRoot, zoneTip, rootTipMix) * fiberMicroTint * seamShade;
 
     // 3. Soft Velvety Plush Tuft Ambient Occlusion (gentle depth without dark noisy pits)
-    float aoFactor = mix(0.88, 1.0, pow(clamp(h, 0.0, 1.0), 0.48));
-    vec3 creviceColor = zoneRoot * vec3(0.93, 0.94, 0.92) * seamShade;
+    float aoFactor = mix(0.89, 1.0, pow(clamp(h, 0.0, 1.0), 0.48));
+    vec3 creviceColor = zoneRoot * vec3(0.94, 0.95, 0.93) * seamShade;
     vec3 aoShadedAlbedo = mix(creviceColor, albedo, aoFactor);
 
     // 4. Soft Volumetric Self-Shadowing & Natural Wrap Diffuse Lighting
     float NdotL = dot(N, L);
-    float opticalDepth = (1.0 - h) * (0.24 + 0.28 * uFurDensity) / max(0.38, NdotL * 0.5 + 0.65);
-    float deepShadow = exp(-opticalDepth * 0.62);
-    float wrapDiffuse = clamp((NdotL + 0.72) / 1.72, 0.0, 1.0);
-    float lightWeight = clamp(wrapDiffuse * (0.58 + 0.42 * deepShadow), 0.0, 1.0);
+    float opticalDepth = (1.0 - h) * (0.22 + 0.26 * uFurDensity) / max(0.40, NdotL * 0.5 + 0.65);
+    float deepShadow = exp(-opticalDepth * 0.58);
+    float wrapDiffuse = clamp((NdotL + 0.76) / 1.76, 0.0, 1.0);
+    float lightWeight = clamp(wrapDiffuse * (0.60 + 0.40 * deepShadow), 0.0, 1.0);
 
-    vec3 shadowCoat = aoShadedAlbedo * vec3(0.85, 0.87, 0.83);
+    vec3 shadowCoat = aoShadedAlbedo * vec3(0.86, 0.88, 0.84);
     vec3 litCoat = aoShadedAlbedo * mix(vec3(1.0), uKeyLightColor, 0.16);
     vec3 diffuseTerm = mix(shadowCoat, litCoat, lightWeight) * (0.87 + 0.14 * uKeyLightIntensity);
 
@@ -145,7 +146,7 @@ const COMMON_HAIR_BSDF_GLSL = /* glsl */ `
     float sheenBoost = 1.0 + combMemory * 0.16;
     vec3 tPrimary = shiftTangent(T, N, -0.10 + (strandSeed - 0.5) * 0.03);
     float specR = hairSpecularLobe(tPrimary, N, V, L, uRoughness) * uSpecular * sheenBoost;
-    vec3 colorR = specR * uKeyLightColor * 0.20 * (1.0 - bellyWeight * 0.35);
+    vec3 colorR = specR * uKeyLightColor * 0.18 * (1.0 - bellyWeight * 0.40);
 
     // 6. Soft Rim Halo along Plush Contour
     float fresnelRim = pow(1.0 - max(0.0, dot(N, V)), 2.6);
@@ -153,7 +154,7 @@ const COMMON_HAIR_BSDF_GLSL = /* glsl */ `
 
     // 7. Soft Neutral Studio Hemisphere Fill
     vec3 hemiFill = mix(
-      zoneRoot * 0.90,
+      zoneRoot * 0.91,
       zoneTip * 1.01,
       clamp(N.y * 0.5 + 0.5, 0.0, 1.0)
     ) * (0.15 * uAmbientIntensity);
@@ -164,15 +165,15 @@ const COMMON_HAIR_BSDF_GLSL = /* glsl */ `
 
 const COMMON_CLEARANCE_GLSL = /* glsl */ `
   float computeBellyLengthScale(vec3 rootPos) {
-    float bellyRx = 0.52 - 0.04 * (rootPos.y + 0.33);
+    float bellyRx = 0.51 - 0.035 * (rootPos.y + 0.33);
     float bellyEllip = sqrt(
       pow(rootPos.x / max(0.28, bellyRx), 2.0) +
       pow((rootPos.y + 0.33) / 0.39, 2.0)
     );
-    float bellyZMask = smoothstep(0.18, 0.42, rootPos.z);
+    float bellyZMask = smoothstep(0.20, 0.42, rootPos.z);
     float bellyWeight = (1.0 - smoothstep(0.78, 1.04, bellyEllip)) * bellyZMask;
     // Belly plush is subtly shorter and extra velvety without creating a perimeter step
-    return mix(1.0, 0.94, bellyWeight);
+    return mix(1.0, 0.98, bellyWeight);
   }
 
   vec3 applyAnatomicalClearance(vec3 pos, float h) {
@@ -180,10 +181,10 @@ const COMMON_CLEARANCE_GLSL = /* glsl */ `
     float tipWeight = smoothstep(0.10, 0.65, h);
 
     // 1. Keep short plush fibers from crossing in front of or occluding the two dark-brown eyes
-    // Eye centers are at x = ±0.245, y = 0.26
+    // Eye centers are at x = ±0.245, y = 0.25
     if (p.z > 0.48 && tipWeight > 0.01) {
-      vec2 leftEyeXY = vec2(-0.245, 0.26);
-      vec2 rightEyeXY = vec2(0.245, 0.26);
+      vec2 leftEyeXY = vec2(-0.245, 0.25);
+      vec2 rightEyeXY = vec2(0.245, 0.25);
       float eyeClearRadius = 0.072;
 
       vec2 dL = p.xy - leftEyeXY;

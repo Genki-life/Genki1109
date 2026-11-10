@@ -337,8 +337,8 @@ export function NovaAvatar3D({
       const camera = new THREE.PerspectiveCamera(32, width / height, 0.1, 40);
       cameraRef.current = camera;
 
-      // Frame the fuller vertical ovoid plush doll, scaling it up appropriately on the Today home screen
-      // while keeping the elongated left upright ear, folded right lop ear, side arms, and flat bottom inside
+      // Frame the fuller vertical ovoid plush doll at its geometric vertical midpoint (y ≈ 0.30)
+      // so the elongated left upright ear, folded right lop ear, side arms, and flat bottom all have clean margins
       const updateFraming = (w: number, h: number) => {
         const aspect = Math.max(0.5, w / Math.max(1, h));
         camera.aspect = aspect;
@@ -347,20 +347,21 @@ export function NovaAvatar3D({
         const tanHalfV = Math.tan(vFovRad / 2);
         const tanHalfH = tanHalfV * aspect;
 
-        const distV = 1.40 / tanHalfV;
+        const distV = 1.38 / tanHalfV;
         const distH = 1.18 / tanHalfH;
-        const targetDist = Math.max(distV, distH, 4.88);
+        const targetDist = Math.max(distV, distH, 5.02);
 
-        camera.position.set(0.0, 0.22, targetDist);
-        camera.lookAt(0.0, 0.20, 0.0);
+        camera.position.set(0.0, 0.31, targetDist);
+        camera.lookAt(0.0, 0.30, 0.0);
         camera.updateProjectionMatrix();
         renderer.setSize(w, h);
       };
 
       updateFraming(width, height);
 
-      // Soft, natural studio lighting rig (avoids overexposure, harsh glare, or purple tints)
-      const keyLight = new THREE.DirectionalLight('#fffdf8', 1.35);
+      // Soft, natural wrap studio lighting rig so the under-skin mesh matches the fur BSDF wrap diffuse
+      // without creating a bright hotspot in the center of the belly or a darker ring near its edge
+      const keyLight = new THREE.DirectionalLight('#fffdf8', 0.62);
       keyLight.position.set(1.6, 2.3, 2.6);
       keyLight.castShadow = !isSoftwareGl;
       keyLight.shadow.mapSize.set(1024, 1024);
@@ -368,15 +369,15 @@ export function NovaAvatar3D({
       keyLight.shadow.radius = 2.0;
       scene.add(keyLight);
 
-      const rimLight = new THREE.DirectionalLight('#f5f1e6', 0.90);
+      const rimLight = new THREE.DirectionalLight('#f5f1e6', 0.55);
       rimLight.position.set(-2.0, 1.8, -2.5);
       scene.add(rimLight);
 
-      const bottomFillLight = new THREE.DirectionalLight('#f4efe2', 0.55);
+      const bottomFillLight = new THREE.DirectionalLight('#f7f4eb', 0.52);
       bottomFillLight.position.set(0.0, -2.2, 2.0);
       scene.add(bottomFillLight);
 
-      const hemiLight = new THREE.HemisphereLight('#fffdf9', '#8f9987', 0.85);
+      const hemiLight = new THREE.HemisphereLight('#fffdf9', '#dce0d6', 1.15);
       scene.add(hemiLight);
 
       // Procedural Sage-Green Ovoid Plush Creature (asymmetric ears, side arms, cream belly, round tail, dark-brown eyes)

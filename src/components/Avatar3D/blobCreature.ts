@@ -13,33 +13,40 @@ function smoothstep(edge0: number, edge1: number, x: number): number {
  * - Gently flattened stable bottom base (no legs or feet)
  */
 export function sculptTorsoPosition(u: number, v: number, w: number): [number, number, number] {
-  // 1. Vertical coordinate: fuller vertical ellipsoid from y ≈ -0.77 (wide flat base) to y ≈ +0.96 (crown)
-  let y = v * 0.96;
-  if (v < -0.58) {
-    const t = (-0.58 - v) / 0.42;
-    y = -0.58 * 0.96 - 0.21 * (Math.tanh(t * 2.4) / Math.tanh(2.4));
+  // 1. Vertical coordinate: seamless head-and-body vertical ellipsoid from y ≈ -0.775 (flat base) to y ≈ +0.94 (rounded crown)
+  let y = v * 0.94;
+  if (v < -0.60) {
+    const t = (-0.60 - v) / 0.40;
+    y = -0.60 * 0.94 - 0.21 * (Math.tanh(t * 2.25) / Math.tanh(2.25));
   }
 
-  // 2. Super-ovoid lower radial expansion so the lower belly stays plump and transitions into a wide flat bottom
+  // 2. Super-ovoid radial profile:
+  // - Upper head (v > 0): gently fuller dome so the top crown is broad and rounded like the turnaround sheet
+  // - Lower body (v < 0): plump lower belly curving smoothly into the wide, gently flattened base without sharp corners
   const rHoriz = Math.hypot(u, w);
-  let lowerSuper = 1.0;
-  if (v < 0.0 && rHoriz > 1e-5) {
-    const expPower = 1.0 - 0.42 * Math.min(1.0, -v);
-    lowerSuper = Math.pow(rHoriz, expPower) / rHoriz;
+  let radialSuper = 1.0;
+  if (rHoriz > 1e-5) {
+    if (v > 0.0) {
+      const upperExp = 1.0 - 0.14 * Math.pow(v, 1.25);
+      radialSuper = Math.pow(rHoriz, upperExp) / rHoriz;
+    } else {
+      const lowerExp = 1.0 - 0.32 * Math.pow(-v, 1.15);
+      radialSuper = Math.pow(rHoriz, lowerExp) / rHoriz;
+    }
   }
 
-  const bellyBulge = Math.exp(-Math.pow((v + 0.18) / 0.62, 2.0));
-  const upperFullness = Math.exp(-Math.pow((v - 0.34) / 0.58, 2.0));
+  const bellyBulge = Math.exp(-Math.pow((v + 0.18) / 0.60, 2.0));
+  const upperFullness = Math.exp(-Math.pow((v - 0.36) / 0.62, 2.0));
 
-  // Horizontal width profile: plump vertical egg/capsule ovoid — full upper head + full middle-lower belly, zero neck
-  const widthScale = (0.64 - 0.024 * v + 0.068 * bellyBulge + 0.042 * upperFullness) * lowerSuper;
+  // Horizontal width profile: head and body seamlessly integrated, slightly wider in lower-middle belly
+  const widthScale = (0.64 - 0.022 * v + 0.068 * bellyBulge + 0.052 * upperFullness) * radialSuper;
   const x = u * widthScale;
 
-  // Side depth profile: plump ovoid thickness with gently rounded front belly
-  const depthScale = (0.61 - 0.028 * v + 0.072 * bellyBulge + 0.030 * upperFullness) * lowerSuper;
+  // Side depth profile: natural ovoid thickness with softly rounded front belly
+  const depthScale = (0.61 - 0.026 * v + 0.070 * bellyBulge + 0.038 * upperFullness) * radialSuper;
   let z = w * depthScale;
   if (w > 0) {
-    z += 0.036 * w * lowerSuper * Math.exp(-Math.pow((v + 0.22) / 0.52, 2.0));
+    z += 0.034 * w * radialSuper * Math.exp(-Math.pow((v + 0.22) / 0.52, 2.0));
   }
 
   return [x, y, z];
@@ -50,11 +57,14 @@ export function sculptTorsoPosition(u: number, v: number, w: number): [number, n
  */
 function getEyeSurfacePosition(side: number): [number, number, number] {
   const targetX = side * 0.245;
-  const targetY = 0.26;
-  const v = targetY / 0.96;
-  const bellyBulge = Math.exp(-Math.pow((v + 0.18) / 0.62, 2.0));
-  const upperFullness = Math.exp(-Math.pow((v - 0.34) / 0.58, 2.0));
-  const widthScale = 0.64 - 0.024 * v + 0.068 * bellyBulge + 0.042 * upperFullness;
+  const targetY = 0.25;
+  const v = targetY / 0.94;
+  const bellyBulge = Math.exp(-Math.pow((v + 0.18) / 0.60, 2.0));
+  const upperFullness = Math.exp(-Math.pow((v - 0.36) / 0.62, 2.0));
+  const rHorizApprox = Math.sqrt(Math.max(0.01, 1.0 - v * v));
+  const upperExp = 1.0 - 0.14 * Math.pow(v, 1.25);
+  const radialSuper = Math.pow(rHorizApprox, upperExp) / rHorizApprox;
+  const widthScale = (0.64 - 0.022 * v + 0.068 * bellyBulge + 0.052 * upperFullness) * radialSuper;
   const u = targetX / widthScale;
   const w = Math.sqrt(Math.max(0.01, 1.0 - u * u - v * v));
   return sculptTorsoPosition(u, v, w);
@@ -78,23 +88,23 @@ export function evaluateFollicleMask(x: number, y: number, z: number): number {
   if (minEyeDist < 0.048) {
     return 0.0;
   }
-  const eyeMask = 0.42 + 0.58 * smoothstep(0.048, 0.12, minEyeDist);
+  const eyeMask = 0.44 + 0.56 * smoothstep(0.048, 0.12, minEyeDist);
 
-  // Larger, wider cream-white front belly oval has slightly shorter, ultra-soft velvety pile
+  // Larger, wider cream-white front belly oval has uniform velvety plush density
   let bellyTrim = 1.0;
-  if (z > 0.18) {
-    const bellyRx = 0.52 - 0.04 * (y + 0.33);
+  if (z > 0.20) {
+    const bellyRx = 0.51 - 0.035 * (y + 0.33);
     const bx = x / Math.max(0.28, bellyRx);
     const by = (y + 0.33) / 0.39;
     const bDist = Math.hypot(bx, by);
-    const bellyWeight = (1.0 - smoothstep(0.80, 1.04, bDist)) * smoothstep(0.18, 0.42, z);
-    bellyTrim = 1.0 - 0.06 * bellyWeight;
+    const bellyWeight = (1.0 - smoothstep(0.78, 1.04, bDist)) * smoothstep(0.20, 0.42, z);
+    bellyTrim = 1.0 - 0.02 * bellyWeight;
   }
 
   // Very bottom ground contact pad taper
-  const bottomMask = 0.48 + 0.52 * smoothstep(-0.77, -0.66, y);
+  const bottomMask = 0.50 + 0.50 * smoothstep(-0.775, -0.66, y);
 
-  return Math.max(0.0, Math.min(1.05, eyeMask * bellyTrim * bottomMask));
+  return Math.max(0.0, Math.min(1.04, eyeMask * bellyTrim * bottomMask));
 }
 
 /**
@@ -115,34 +125,34 @@ export function evaluateGroomFlow(
   let fy = -0.85;
   let fz = z * 0.15;
 
-  // On the upright left ear (y > 0.80, x < -0.06), groom flows upward toward the rounded ear tip
-  if (y > 0.80 && x < -0.06) {
-    const earW = smoothstep(0.80, 0.94, y);
-    fx = fx * (1.0 - earW) + (-0.16) * earW;
+  // On the upright left ear (y > 0.78, x < -0.06), groom flows upward toward the rounded ear tip
+  if (y > 0.78 && x < -0.06) {
+    const earW = smoothstep(0.78, 0.92, y);
+    fx = fx * (1.0 - earW) + (-0.15) * earW;
     fy = fy * (1.0 - earW) + 0.94 * earW;
   }
 
-  // On the folded right lop ear (y > 0.46, x > 0.22), groom flows along the arch and downward toward the drooping lobe
-  if (y > 0.46 && x > 0.22 && y + x * 0.55 > 0.84) {
+  // On the folded right lop ear (y > 0.44, x > 0.22), groom flows along the arch and downward toward the drooping lobe
+  if (y > 0.44 && x > 0.22 && y + x * 0.52 > 0.80) {
     const lopW = smoothstep(0.24, 0.42, x);
-    fx = fx * (1.0 - lopW) + 0.52 * lopW;
-    fy = fy * (1.0 - lopW) + (-0.84) * lopW;
+    fx = fx * (1.0 - lopW) + 0.48 * lopW;
+    fy = fy * (1.0 - lopW) + (-0.86) * lopW;
   }
 
-  // On the stubby side arms (abs(x) > 0.62, y in [-0.52, 0.02]), groom flows outward and downward toward the mitten tip
-  if (Math.abs(x) > 0.62 && y > -0.52 && y < 0.02) {
-    const armW = smoothstep(0.62, 0.72, Math.abs(x));
+  // On the stubby side arms (abs(x) > 0.60, y in [-0.52, 0.02]), groom flows outward and downward toward the mitten tip
+  if (Math.abs(x) > 0.60 && y > -0.52 && y < 0.02) {
+    const armW = smoothstep(0.60, 0.70, Math.abs(x));
     const signX = x >= 0 ? 1.0 : -1.0;
-    fx = fx * (1.0 - armW) + signX * 0.55 * armW;
-    fy = fy * (1.0 - armW) + (-0.82) * armW;
+    fx = fx * (1.0 - armW) + signX * 0.52 * armW;
+    fy = fy * (1.0 - armW) + (-0.84) * armW;
   }
 
-  // On the round pom-pom tail at the bottom-back (z < -0.56, y < -0.32), groom radiates outward as a soft ball
-  if (z < -0.56 && y < -0.32 && Math.abs(x) < 0.26) {
-    const tailW = smoothstep(-0.54, -0.62, z);
+  // On the round pom-pom tail at the bottom-back (z < -0.54, y < -0.32), groom radiates outward as a soft ball
+  if (z < -0.54 && y < -0.32 && Math.abs(x) < 0.26) {
+    const tailW = smoothstep(-0.52, -0.60, z);
     const rx = x;
-    const ry = y + 0.53;
-    const rz = z + 0.73;
+    const ry = y + 0.52;
+    const rz = z + 0.68;
     fx = fx * (1.0 - tailW) + rx * 2.0 * tailW;
     fy = fy * (1.0 - tailW) + (ry * 1.6 - 0.15) * tailW;
     fz = fz * (1.0 - tailW) + rz * 2.0 * tailW;
@@ -190,51 +200,53 @@ export function evaluateGroomFlow(
 }
 
 /**
- * Evaluates the RGB under-skin vertex color at local position (x, y, z) so the base mesh
- * matches the light low-saturation sage-green coat, warm cream-oatmeal belly, peach blush, and pale inner ear.
+ * Evaluates the RGB under-skin vertex color at local position (x, y, z), calibrated to match
+ * the exact shaded root luminance of furShaders.ts so the base mesh never causes bright hotspots
+ * or dark boundary rings under the short plush fur.
  */
 function evaluateUnderSkinColor(x: number, y: number, z: number): [number, number, number] {
-  // Base light, low-saturation grey-sage green under-skin
-  let r = 0.72;
-  let g = 0.76;
-  let b = 0.68;
+  // Calibrated sage-green root under-skin matching furShaders.ts root color
+  let r = 0.61;
+  let g = 0.65;
+  let b = 0.57;
 
-  // 1. Larger, wider warm cream-oatmeal oval belly on the lower front (z > 0.18)
-  if (z > 0.18) {
-    const bellyRx = 0.52 - 0.04 * (y + 0.33);
+  // 1. Larger, wider warm cream-oatmeal oval belly on the lower front (z > 0.20)
+  // Exactly matches furShaders.ts bellyRx, bellyRy, bellyZMask, and smoothstep feathering
+  if (z > 0.20) {
+    const bellyRx = 0.51 - 0.035 * (y + 0.33);
     const bx = x / Math.max(0.28, bellyRx);
     const by = (y + 0.33) / 0.39;
     const bDist = Math.hypot(bx, by);
-    const bellyW = (1.0 - smoothstep(0.78, 1.04, bDist)) * smoothstep(0.18, 0.42, z);
-    r = r * (1.0 - bellyW) + 0.91 * bellyW;
-    g = g * (1.0 - bellyW) + 0.88 * bellyW;
-    b = b * (1.0 - bellyW) + 0.81 * bellyW;
+    const bellyW = (1.0 - smoothstep(0.78, 1.04, bDist)) * smoothstep(0.20, 0.42, z);
+    r = r * (1.0 - bellyW) + 0.80 * bellyW;
+    g = g * (1.0 - bellyW) + 0.77 * bellyW;
+    b = b * (1.0 - bellyW) + 0.70 * bellyW;
   }
 
   // 2. Soft warm peach-orange cheek blush below and outer to the eyes
-  if (z > 0.30) {
+  if (z > 0.28) {
     const lx = (x + 0.375) / 0.145;
     const rx = (x - 0.375) / 0.145;
-    const by = (y - 0.135) / 0.090;
+    const by = (y - 0.13) / 0.090;
     const dBlush = Math.min(Math.hypot(lx, by), Math.hypot(rx, by));
     if (dBlush < 1.35) {
-      const blushW = Math.exp(-dBlush * dBlush * 1.50) * smoothstep(0.30, 0.50, z) * 0.82;
-      r = r * (1.0 - blushW) + 0.90 * blushW;
-      g = g * (1.0 - blushW) + 0.60 * blushW;
-      b = b * (1.0 - blushW) + 0.46 * blushW;
+      const blushW = Math.exp(-dBlush * dBlush * 1.45) * smoothstep(0.28, 0.50, z) * 0.84;
+      r = r * (1.0 - blushW) + 0.78 * blushW;
+      g = g * (1.0 - blushW) + 0.49 * blushW;
+      b = b * (1.0 - blushW) + 0.36 * blushW;
     }
   }
 
-  // 3. Subtle pale sage-cream inner hollow on the elongated upright left ear (x < 0, y > 0.84, z > 0.0)
-  if (x < -0.14 && y > 0.84 && z > 0.0) {
+  // 3. Subtle pale sage-cream inner hollow on the elongated upright left ear (x < 0, y > 0.82, z > 0.0)
+  if (x < -0.14 && y > 0.82 && z > 0.0) {
     const ex = (x + 0.32) / 0.088;
-    const ey = (y - 1.15) / 0.25;
+    const ey = (y - 1.12) / 0.24;
     const dEar = Math.hypot(ex, ey);
     if (dEar < 1.15) {
-      const earW = (1.0 - smoothstep(0.45, 1.10, dEar)) * smoothstep(0.0, 0.05, z) * 0.75;
-      r = r * (1.0 - earW) + 0.85 * earW;
-      g = g * (1.0 - earW) + 0.88 * earW;
-      b = b * (1.0 - earW) + 0.80 * earW;
+      const earW = (1.0 - smoothstep(0.45, 1.10, dEar)) * smoothstep(0.0, 0.06, z) * 0.72;
+      r = r * (1.0 - earW) + 0.70 * earW;
+      g = g * (1.0 - earW) + 0.74 * earW;
+      b = b * (1.0 - earW) + 0.65 * earW;
     }
   }
 
@@ -242,10 +254,22 @@ function evaluateUnderSkinColor(x: number, y: number, z: number): [number, numbe
 }
 
 /**
- * Helper to create the screen-left upright ear geometry (elongated, broad rounded tip, subtle front hollow).
+ * C1-continuous rounded paddle envelope for plush ears and limbs.
+ * Avoids any step discontinuity while producing a sturdy root, gently full mid-section,
+ * and wide hemispherical rounded tip at s = 1.
+ */
+function evaluateSmoothPaddleEnvelope(s: number, midFullness = 0.10): number {
+  const rootTaper = Math.pow(Math.sin(Math.min(1.0, s / 0.22) * (Math.PI * 0.5)), 0.72);
+  const tipDome = Math.cos(Math.max(0.0, (s - 0.58) / 0.42) * (Math.PI * 0.5));
+  return rootTaper * Math.pow(Math.max(0.0, tipDome), 0.56) * (1.0 + midFullness * Math.sin(s * Math.PI));
+}
+
+/**
+ * Helper to create the screen-left upright ear geometry:
+ * Elongated, broad rounded paddle top, natural plush thickness in Side view, and subtle front hollow.
  */
 function createLeftUprightEarGeometry(): THREE.BufferGeometry {
-  const geom = new THREE.SphereGeometry(1.0, 40, 32);
+  const geom = new THREE.SphereGeometry(1.0, 44, 36);
   const pos = geom.attributes.position;
 
   for (let i = 0; i < pos.count; i++) {
@@ -253,29 +277,35 @@ function createLeftUprightEarGeometry(): THREE.BufferGeometry {
     const v = pos.getY(i);
     const w = pos.getZ(i);
 
-    // Map v in [-1, 1] to ear height s in [0, 1]
-    const s = (v + 1.0) * 0.5;
-    // Boost upper half so the elongated upright ear has a full, rounded paddle tip
-    const roundTopBoost = 1.0 + 0.34 * Math.pow(Math.max(0.0, v), 1.55);
-    const widthProfile = 0.168 * roundTopBoost;
-    const thickProfile = 0.088 * (1.0 + 0.20 * Math.pow(Math.max(0.0, v), 1.55));
+    const phi = Math.acos(Math.max(-1.0, Math.min(1.0, v)));
+    const s = 1.0 - phi / Math.PI; // 0 at base, 1 at tip
+    const rCircle = Math.sqrt(Math.max(0.0, 1.0 - v * v));
+    const cosTheta = rCircle > 1e-5 ? u / rCircle : 0.0;
+    const sinTheta = rCircle > 1e-5 ? w / rCircle : 0.0;
 
-    let lx = u * widthProfile;
-    let ly = s * 0.72; // Appropriately elongated upright ear
-    let lz = w * thickProfile;
+    const paddleEnv = evaluateSmoothPaddleEnvelope(s, 0.11);
 
-    // Subtle concave inner-ear scoop on the front (+z) face
-    if (w > 0 && s > 0.14 && s < 0.86 && Math.abs(u) < 0.78) {
-      const scoop = Math.sin(((s - 0.14) / 0.72) * Math.PI) * (1.0 - Math.pow(u / 0.78, 2.0));
-      lz -= scoop * 0.032;
+    const widthRadius = 0.176 * paddleEnv;
+    const thickRadius = 0.114 * paddleEnv;
+
+    let lx = cosTheta * widthRadius;
+    let ly = s * 0.69; // Elongated upright ear height
+    let lz = sinTheta * thickRadius;
+
+    // Gentle concave inner-ear hollow on the front (+z) face
+    if (sinTheta > 0 && s > 0.16 && s < 0.84 && Math.abs(cosTheta) < 0.76) {
+      const scoop =
+        Math.sin(((s - 0.16) / 0.68) * Math.PI) *
+        (1.0 - Math.pow(cosTheta / 0.76, 2.0));
+      lz -= scoop * 0.022;
     }
 
-    // Slight natural forward cup near the rounded tip
-    lz += Math.pow(s, 2.0) * 0.022;
+    // Slight forward cup near the rounded tip
+    lz += Math.pow(s, 1.8) * 0.016;
 
-    // Rotate ear slightly outward (+9 deg around Z) and slightly inward-facing (+9 deg around Y)
+    // Rotate ear slightly outward (+8.6 deg around Z) and slightly inward-facing (+8 deg around Y)
     const roll = 0.15;
-    const yaw = 0.15;
+    const yaw = 0.14;
     const rx = lx * Math.cos(roll) - ly * Math.sin(roll);
     const ry = lx * Math.sin(roll) + ly * Math.cos(roll);
 
@@ -283,7 +313,7 @@ function createLeftUprightEarGeometry(): THREE.BufferGeometry {
     const fz = -rx * Math.sin(yaw) + lz * Math.cos(yaw);
 
     // Anchor on the upper-left head crown
-    pos.setXYZ(i, fx - 0.25, ry + 0.79, fz + 0.02);
+    pos.setXYZ(i, fx - 0.25, ry + 0.77, fz + 0.01);
   }
 
   geom.computeVertexNormals();
@@ -293,55 +323,61 @@ function createLeftUprightEarGeometry(): THREE.BufferGeometry {
 /**
  * Helper to create the screen-right folded / drooping lop ear geometry.
  * Rises from the upper-right crown, bends outward over a plush fold arch, and droops naturally downward
- * beside the upper head as a thick, plump rounded ear paddle matching the turnaround reference.
+ * as a wide, plump rounded paddle flap in Front, Side, and Back views (without inner crease pinching).
  */
 function createRightLopEarGeometry(): THREE.BufferGeometry {
-  const geom = new THREE.SphereGeometry(1.0, 56, 40);
+  const geom = new THREE.SphereGeometry(1.0, 56, 42);
   const pos = geom.attributes.position;
 
-  // Smooth spine curve: root on crown -> plush upward/outward fold arch -> drooping rounded paddle flap
+  // Spine curve from upper-right crown -> fold arch -> outward-downward drooping ear paddle
   const spineCurve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0.22, 0.77, 0.02),
-    new THREE.Vector3(0.36, 0.95, 0.03),
-    new THREE.Vector3(0.54, 0.92, 0.04),
-    new THREE.Vector3(0.68, 0.76, 0.05),
-    new THREE.Vector3(0.73, 0.59, 0.06)
+    new THREE.Vector3(0.22, 0.75, 0.02),
+    new THREE.Vector3(0.36, 0.93, 0.03),
+    new THREE.Vector3(0.54, 0.89, 0.04),
+    new THREE.Vector3(0.67, 0.73, 0.05),
+    new THREE.Vector3(0.72, 0.55, 0.06)
   ]);
 
   const worldZ = new THREE.Vector3(0, 0, 1);
 
   for (let i = 0; i < pos.count; i++) {
-    const u = pos.getX(i); // includes sin(phi) on unit sphere
-    const v = pos.getY(i); // cos(phi) in [-1, 1]
-    const w = pos.getZ(i); // includes sin(phi) on unit sphere
+    const u = pos.getX(i);
+    const v = pos.getY(i);
+    const w = pos.getZ(i);
 
-    // Use arc-angle parameterization so cross-sections are 100% smooth with zero step ridges
     const phi = Math.acos(Math.max(-1.0, Math.min(1.0, v)));
-    const s = 1.0 - phi / Math.PI;
+    const s = 1.0 - phi / Math.PI; // 0 at root, 1 at drooping paddle tip
+    const rCircle = Math.sqrt(Math.max(0.0, 1.0 - v * v));
+    const cosTheta = rCircle > 1e-5 ? u / rCircle : 0.0;
+    const sinTheta = rCircle > 1e-5 ? w / rCircle : 0.0;
+
+    const paddleEnv = evaluateSmoothPaddleEnvelope(s, 0.13);
+
     const center = spineCurve.getPointAt(s);
     const tang = spineCurve.getTangentAt(s).normalize();
 
-    // Build stable, continuous cross-section basis where Z-axis is broad ear flap width (visible in side view)
+    // flapAxis is along Z (broad ear width seen face-on in Side view)
     const flapAxis = worldZ.clone().sub(tang.clone().multiplyScalar(worldZ.dot(tang))).normalize();
+    // thickAxis is in the XY plane perpendicular to the spine curve
     const thickAxis = new THREE.Vector3().crossVectors(tang, flapAxis).normalize();
 
-    // Plump, soft plush paddle volume with a broader rounded drooping lobe
-    const tipRoundBoost = 1.0 + 0.28 * Math.pow(s, 1.6);
-    const flapRadius = (0.152 + 0.026 * Math.sin(s * Math.PI)) * tipRoundBoost;
-    const thickRadius = (0.082 + 0.020 * s) * tipRoundBoost;
+    // Asymmetric XY thickness prevents inner-bend self-intersection while keeping outer arch plump
+    const thickR = (cosTheta >= 0.0 ? 0.098 : 0.064) * paddleEnv;
+    // Broad Z paddle width so Side view shows a generous, rounded-bottom drooping ear flap
+    const flapR = (0.172 + 0.028 * Math.pow(s, 0.7)) * paddleEnv;
 
     const px =
       center.x +
-      thickAxis.x * (u * thickRadius) +
-      flapAxis.x * (w * flapRadius);
+      thickAxis.x * (cosTheta * thickR) +
+      flapAxis.x * (sinTheta * flapR);
     const py =
       center.y +
-      thickAxis.y * (u * thickRadius) +
-      flapAxis.y * (w * flapRadius);
+      thickAxis.y * (cosTheta * thickR) +
+      flapAxis.y * (sinTheta * flapR);
     const pz =
       center.z +
-      thickAxis.z * (u * thickRadius) +
-      flapAxis.z * (w * flapRadius);
+      thickAxis.z * (cosTheta * thickR) +
+      flapAxis.z * (sinTheta * flapR);
 
     pos.setXYZ(i, px, py, pz);
   }
@@ -352,17 +388,17 @@ function createRightLopEarGeometry(): THREE.BufferGeometry {
 
 /**
  * Helper to create the clearly recognizable short, rounded, fingerless plush arms on both sides
- * of the middle-lower body with a soft shoulder connection.
+ * of the middle-lower body with a soft shoulder connection and vertical-oval side profile.
  */
 function createStubbyArmGeometry(side: number): THREE.BufferGeometry {
-  const geom = new THREE.SphereGeometry(1.0, 36, 28);
+  const geom = new THREE.SphereGeometry(1.0, 38, 30);
   const pos = geom.attributes.position;
 
   // Smooth outward-and-downward arm curve from middle-lower torso flank to rounded mitten tip
   const armCurve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(side * 0.62, -0.06, 0.04),
-    new THREE.Vector3(side * 0.77, -0.22, 0.05),
-    new THREE.Vector3(side * 0.89, -0.39, 0.06)
+    new THREE.Vector3(side * 0.60, -0.04, 0.04),
+    new THREE.Vector3(side * 0.75, -0.22, 0.05),
+    new THREE.Vector3(side * 0.86, -0.41, 0.06)
   ]);
 
   const worldZ = new THREE.Vector3(0, 0, 1);
@@ -374,19 +410,24 @@ function createStubbyArmGeometry(side: number): THREE.BufferGeometry {
 
     const phi = Math.acos(Math.max(-1.0, Math.min(1.0, v)));
     const s = 1.0 - phi / Math.PI;
+    const rCircle = Math.sqrt(Math.max(0.0, 1.0 - v * v));
+    const cosTheta = rCircle > 1e-5 ? u / rCircle : 0.0;
+    const sinTheta = rCircle > 1e-5 ? w / rCircle : 0.0;
+
+    const mittenEnv = evaluateSmoothPaddleEnvelope(s, 0.09);
+
     const center = armCurve.getPointAt(s);
     const tang = armCurve.getTangentAt(s).normalize();
 
     const depthAxis = worldZ.clone().sub(tang.clone().multiplyScalar(worldZ.dot(tang))).normalize();
     const thickAxis = new THREE.Vector3().crossVectors(tang, depthAxis).normalize();
 
-    const mittenBoost = 1.0 + 0.26 * Math.pow(s, 1.5);
-    const rThick = 0.105 * mittenBoost;
-    const rDepth = 0.142 * mittenBoost;
+    const rThick = 0.098 * mittenEnv;
+    const rDepth = 0.118 * mittenEnv; // Keeps side-view arm profile a vertical oval rather than a wide circle
 
-    const px = center.x + thickAxis.x * (u * rThick) + depthAxis.x * (w * rDepth);
-    const py = center.y + thickAxis.y * (u * rThick) + depthAxis.y * (w * rDepth);
-    const pz = center.z + thickAxis.z * (u * rThick) + depthAxis.z * (w * rDepth);
+    const px = center.x + thickAxis.x * (cosTheta * rThick) + depthAxis.x * (sinTheta * rDepth);
+    const py = center.y + thickAxis.y * (cosTheta * rThick) + depthAxis.y * (sinTheta * rDepth);
+    const pz = center.z + thickAxis.z * (cosTheta * rThick) + depthAxis.z * (sinTheta * rDepth);
 
     pos.setXYZ(i, px, py, pz);
   }
@@ -397,15 +438,16 @@ function createStubbyArmGeometry(side: number): THREE.BufferGeometry {
 
 /**
  * Helper to create the small round pom-pom tail at the bottom-center of the back.
+ * Embedded cleanly into the lower back torso without gaps, protruding backward in Side view.
  */
 function createPomTailGeometry(): THREE.BufferGeometry {
-  const geom = new THREE.SphereGeometry(0.168, 28, 22);
+  const geom = new THREE.SphereGeometry(0.165, 28, 22);
   const pos = geom.attributes.position;
 
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i) * 1.05;
-    const y = pos.getY(i) * 1.05 - 0.53;
-    const z = pos.getZ(i) * 1.02 - 0.73;
+    const y = pos.getY(i) * 1.05 - 0.52;
+    const z = pos.getZ(i) * 1.02 - 0.68;
     pos.setXYZ(i, x, y, z);
   }
 
